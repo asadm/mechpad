@@ -201,6 +201,9 @@ struct ContentView: View {
                         .font(.subheadline)
                     Toggle("Stabilizer Acoustics (Space / Enter / Shift)", isOn: $state.useKeyAcoustics)
                         .font(.subheadline)
+                    Toggle("Built-in Keyboard Only", isOn: $state.builtInOnly)
+                        .font(.subheadline)
+                        .help("Stay quiet when you type on an external keyboard")
                     Spacer()
                 }
             }

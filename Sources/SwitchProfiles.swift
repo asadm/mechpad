@@ -48,7 +48,8 @@ enum KeyKind: String {
         }
     }
 
-    static func displayName(for keyCode: UInt16, characters: String?) -> String {
+    /// Built from the key code only: MechPad never reads which characters are typed.
+    static func displayName(for keyCode: UInt16) -> String {
         switch keyCode {
         case 49: return "Space"
         case 36, 76: return "Return"
@@ -65,11 +66,7 @@ enum KeyKind: String {
         case 124: return "→"
         case 125: return "↓"
         case 126: return "↑"
-        default:
-            if let ch = characters?.trimmingCharacters(in: .whitespacesAndNewlines), !ch.isEmpty {
-                return ch.uppercased()
-            }
-            return "Key \(keyCode)"
+        default: return "Key"
         }
     }
 }
