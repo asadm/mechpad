@@ -47,37 +47,6 @@ enum KeyKind: String {
         default: return .alpha
         }
     }
-
-    static func displayName(for keyCode: UInt16, characters: String?) -> String {
-        switch keyCode {
-        case 49: return "Space"
-        case 36, 76: return "Return"
-        case 51: return "Delete"
-        case 117: return "Fwd Del"
-        case 48: return "Tab"
-        case 53: return "Esc"
-        case 56, 60: return "Shift"
-        case 57: return "Caps"
-        case 55, 54: return "Cmd"
-        case 58, 61: return "Opt"
-        case 59, 62: return "Ctrl"
-        case 123: return "←"
-        case 124: return "→"
-        case 125: return "↓"
-        case 126: return "↑"
-        default:
-            if let ch = characters?.trimmingCharacters(in: .whitespacesAndNewlines), !ch.isEmpty {
-                return ch.uppercased()
-            }
-            return "Key \(keyCode)"
-        }
-    }
-}
-
-struct SwitchTraits {
-    let thock: Double     // 0...1
-    let clack: Double     // 0...1
-    let tactility: Double // 0...1
 }
 
 struct SwitchProfile: Identifiable, Equatable {
@@ -86,7 +55,6 @@ struct SwitchProfile: Identifiable, Equatable {
     let category: String
     let tagline: String
     let stemHex: UInt32
-    let traits: SwitchTraits
 
     // Downstroke synthesis parameters
     let downBaseGaussianAmp: Double
@@ -104,6 +72,9 @@ struct SwitchProfile: Identifiable, Equatable {
     let upBaseDurationMS: Double
     let upTones: [HapticTone]
     let upLevel: Float
+
+    var localizedCategory: String { NSLocalizedString(category, comment: "Switch category") }
+    var localizedTagline: String { NSLocalizedString(tagline, comment: "Switch sound description") }
 
     static func == (lhs: SwitchProfile, rhs: SwitchProfile) -> Bool {
         lhs.id == rhs.id
@@ -188,7 +159,6 @@ enum SwitchLibrary {
             category: "Clicky",
             tagline: "Bright click-jacket snap with sharp, crisp clack",
             stemHex: 0x0A84FF,
-            traits: SwitchTraits(thock: 0.35, clack: 0.95, tactility: 0.90),
             downBaseGaussianAmp: 0.16,
             downBaseDurationMS: 3.0,
             downTones: [
@@ -219,7 +189,6 @@ enum SwitchLibrary {
             category: "Tactile",
             tagline: "Gentle tactile notch with balanced, muted bottom-out",
             stemHex: 0x8B5A2B,
-            traits: SwitchTraits(thock: 0.55, clack: 0.50, tactility: 0.60),
             downBaseGaussianAmp: 0.14,
             downBaseDurationMS: 4.5,
             downTones: [
@@ -250,7 +219,6 @@ enum SwitchLibrary {
             category: "Linear",
             tagline: "Smooth linear feel with clean, light bottom-out",
             stemHex: 0xE03131,
-            traits: SwitchTraits(thock: 0.50, clack: 0.45, tactility: 0.18),
             downBaseGaussianAmp: 0.12,
             downBaseDurationMS: 5.5,
             downTones: [
@@ -278,7 +246,6 @@ enum SwitchLibrary {
             category: "Tactile · Thock",
             tagline: "Pronounced rounded bump with signature woody pop",
             stemHex: 0xF4A261,
-            traits: SwitchTraits(thock: 0.86, clack: 0.65, tactility: 0.94),
             downBaseGaussianAmp: 0.18,
             downBaseDurationMS: 6.0,
             downTones: [
@@ -309,7 +276,6 @@ enum SwitchLibrary {
             category: "Electrostatic",
             tagline: "Iconic deep, muted HHKB rubber-dome thock",
             stemHex: 0x6C5CE7,
-            traits: SwitchTraits(thock: 0.98, clack: 0.24, tactility: 0.72),
             downBaseGaussianAmp: 0.26,
             downBaseDurationMS: 9.5,
             downTones: [
@@ -337,7 +303,6 @@ enum SwitchLibrary {
             category: "Buckling Spring",
             tagline: "Loud mechanical snap with vintage metallic spring ping",
             stemHex: 0x8D99AE,
-            traits: SwitchTraits(thock: 0.62, clack: 1.00, tactility: 1.00),
             downBaseGaussianAmp: 0.18,
             downBaseDurationMS: 4.0,
             downTones: [
@@ -367,8 +332,7 @@ enum SwitchLibrary {
             name: "Gateron Oil King",
             category: "Linear · Lubed",
             tagline: "Velvety, factory-lubed deep creamy marbly thock",
-            stemHex: 0x3D405B,
-            traits: SwitchTraits(thock: 0.92, clack: 0.34, tactility: 0.15),
+            stemHex: 0x8E94C8,
             downBaseGaussianAmp: 0.20,
             downBaseDurationMS: 7.0,
             downTones: [

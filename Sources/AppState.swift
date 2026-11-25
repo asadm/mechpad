@@ -1,5 +1,12 @@
+import AppKit
 import Foundation
+import ServiceManagement
 import SwiftUI
+
+/// What the user should know right now, shown the same way in the window and the menu bar.
+enum AppStatus {
+    case active, paused, needsAccess, noTrackpad
+}
 
 final class AppState: ObservableObject {
     private enum Keys {
@@ -8,6 +15,8 @@ final class AppState: ObservableObject {
         static let intensity = "mechpad.intensity"
         static let keyUpSound = "mechpad.keyUpSound"
         static let keyAcoustics = "mechpad.keyAcoustics"
+        static let setupDone = "mechpad.setupDone"
+        static let builtInOnly = "mechpad.builtInOnly"
     }
 
     let engine = HapticEngine()
@@ -23,7 +32,6 @@ final class AppState: ObservableObject {
     @Published var selectedProfileID: String {
         didSet {
             UserDefaults.standard.set(selectedProfileID, forKey: Keys.profileID)
-            onStateChanged?()
         }
     }
 
@@ -45,15 +53,46 @@ final class AppState: ObservableObject {
         }
     }
 
-    @Published var hasGlobalAccess: Bool = false
-    @Published var lastKeyLabel: String = "—"
-    @Published var pulseCounter: Int = 0
-    @Published var totalClicks: Int = 0
+    @Published var builtInOnly: Bool {
+        didSet {
+            UserDefaults.standard.set(builtInOnly, forKey: Keys.builtInOnly)
+            monitor.builtInOnly = builtInOnly
+        }
+    }
 
+    /// The user has seen the "you're all set" step and dismissed it.
+    @Published var setupDone: Bool {
+        didSet {
+            UserDefaults.standard.set(setupDone, forKey: Keys.setupDone)
+        }
+    }
+
+    @Published var hasGlobalAccess: Bool = false {
+        didSet { onStateChanged?() }
+    }
+
+    @Published private(set) var launchAtLogin = SMAppService.mainApp.status == .enabled
+
+    /// Called when anything the menu bar icon reflects has changed.
     var onStateChanged: (() -> Void)?
 
     var selectedProfile: SwitchProfile {
         SwitchLibrary.profile(id: selectedProfileID)
+    }
+
+    var status: AppStatus {
+        if !engine.isAvailable { return .noTrackpad }
+        if !hasGlobalAccess { return .needsAccess }
+        return isEnabled ? .active : .paused
+    }
+
+    var statusTitle: String {
+        switch status {
+        case .active: return String(localized: "Active · \(selectedProfile.name)")
+        case .paused: return String(localized: "Paused")
+        case .needsAccess: return String(localized: "Needs Accessibility access")
+        case .noTrackpad: return String(localized: "No Force Touch trackpad found")
+        }
     }
 
     init() {
@@ -63,6 +102,9 @@ final class AppState: ObservableObject {
         intensity = defaults.object(forKey: Keys.intensity) as? Double ?? 0.85
         playKeyUp = defaults.object(forKey: Keys.keyUpSound) as? Bool ?? true
         useKeyAcoustics = defaults.object(forKey: Keys.keyAcoustics) as? Bool ?? true
+        setupDone = defaults.bool(forKey: Keys.setupDone)
+        builtInOnly = defaults.object(forKey: Keys.builtInOnly) as? Bool ?? true
+        monitor.builtInOnly = builtInOnly
 
         monitor.onPermissionChanged = { [weak self] granted in
             DispatchQueue.main.async {
@@ -70,8 +112,8 @@ final class AppState: ObservableObject {
             }
         }
 
-        monitor.onKeyEvent = { [weak self] keyCode, characters, isKeyDown in
-            self?.handleKey(keyCode: keyCode, characters: characters, isKeyDown: isKeyDown)
+        monitor.onKeyEvent = { [weak self] keyCode, isKeyDown in
+            self?.handleKey(keyCode: keyCode, isKeyDown: isKeyDown)
         }
 
         monitor.start()
@@ -82,13 +124,27 @@ final class AppState: ObservableObject {
         engine.close()
     }
 
-    func handleKey(keyCode: UInt16, characters: String?, isKeyDown: Bool) {
+    func setLaunchAtLogin(_ on: Bool) {
+        let service = SMAppService.mainApp
+        do {
+            if on {
+                try service.register()
+            } else {
+                try service.unregister()
+            }
+        } catch {
+            NSApp.activate(ignoringOtherApps: true)
+            NSAlert(error: error).runModal()
+        }
+        launchAtLogin = service.status == .enabled
+    }
+
+    func handleKey(keyCode: UInt16, isKeyDown: Bool) {
         guard isEnabled else { return }
         if !isKeyDown && !playKeyUp { return }
 
-        let kind = KeyKind.from(keyCode: keyCode)
         let synth = selectedProfile.synthesize(
-            keyKind: kind,
+            keyKind: KeyKind.from(keyCode: keyCode),
             isKeyDown: isKeyDown,
             useKeyAcoustics: useKeyAcoustics
         )
@@ -97,29 +153,12 @@ final class AppState: ObservableObject {
             secondary: synth.secondary,
             masterIntensity: Float(intensity)
         )
-
-        if isKeyDown {
-            let label = KeyKind.displayName(for: keyCode, characters: characters)
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.lastKeyLabel = label
-                self.pulseCounter += 1
-                self.totalClicks += 1
-            }
-        }
     }
 
     /// Auditions a specific profile with a simulated downstroke + upstroke click.
     func audition(profile: SwitchProfile, keyKind: KeyKind = .alpha) {
         let down = profile.synthesize(keyKind: keyKind, isKeyDown: true, useKeyAcoustics: useKeyAcoustics)
         engine.playKeyEvent(primary: down.primary, secondary: down.secondary, masterIntensity: Float(intensity))
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.lastKeyLabel = keyKind == .spacebar ? "Space" : "Test"
-            self.pulseCounter += 1
-            self.totalClicks += 1
-        }
 
         if playKeyUp {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.085) { [weak self] in

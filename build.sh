@@ -28,6 +28,7 @@ FRAMEWORKS="
 -framework IOKit
 -framework ApplicationServices
 -framework Carbon
+-framework ServiceManagement
 "
 
 mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
@@ -45,6 +46,9 @@ else
     swiftc -O -target "${ARCH}-apple-macos13" ${FRAMEWORKS} ${SOURCES} -o "${MACOS_DIR}/${APP_NAME}"
 fi
 
+cp Icon/AppIcon.icns "${RESOURCES_DIR}/AppIcon.icns"
+cp -R Localization/*.lproj "${RESOURCES_DIR}/"
+
 cat > "${CONTENTS_DIR}/Info.plist" << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -54,12 +58,25 @@ cat > "${CONTENTS_DIR}/Info.plist" << 'EOF'
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>MechPad</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.mechpad.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
     <string>MechPad</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>ru</string>
+        <string>he</string>
+        <string>de</string>
+        <string>es</string>
+        <string>fr</string>
+        <string>ja</string>
+        <string>zh-Hans</string>
+    </array>
     <key>CFBundleDisplayName</key>
     <string>MechPad</string>
     <key>CFBundlePackageType</key>
@@ -70,6 +87,8 @@ cat > "${CONTENTS_DIR}/Info.plist" << 'EOF'
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
+    <key>LSUIElement</key>
+    <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSPrincipalClass</key>

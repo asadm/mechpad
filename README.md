@@ -33,7 +33,11 @@ Each profile is acoustically calibrated against the MacBook trackpad's physical 
 - **Instant Typing Test Pad**: Audition switches inside MechPad immediately before granting Accessibility access.
 - **Stabilizer acoustics**: Spacebar, Return, Delete, and Modifier keys produce deeper, heavier resonance.
 - **Key-up return clicks**: Simulates top-out switch return when releasing keys (toggleable).
-- **Menu bar app**: Quickly switch profiles or pause/resume from the macOS menu bar.
+- **Menu bar app**: Lives in the menu bar with no Dock icon. Switch profiles and change intensity from the menu; right-click the icon to pause or resume.
+- **Launch at login**: Optional, from the setup screen, settings or the menu.
+- **Built-in keyboard only**: Optionally stay quiet when you type on an external keyboard.
+- **Private by design**: Only key codes are used, never the characters you type. Keystrokes posted by other apps (for example keyboard layout switchers) are ignored.
+- **Languages**: English, Russian, Hebrew, German, Spanish, French, Japanese and Simplified Chinese.
 
 ## Download & Install
 

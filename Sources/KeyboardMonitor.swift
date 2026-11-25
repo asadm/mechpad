@@ -6,15 +6,18 @@ import Carbon
 /// permission is granted, and falls back to an in-app `NSEvent` local monitor so users
 /// can audition switch profiles immediately inside MechPad even before granting access.
 final class KeyboardMonitor {
-    typealias KeyHandler = (_ keyCode: UInt16, _ characters: String?, _ isKeyDown: Bool) -> Void
+    typealias KeyHandler = (_ keyCode: UInt16, _ isKeyDown: Bool) -> Void
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var localMonitor: Any?
     private var permissionTimer: Timer?
     private var lastModifierFlags: CGEventFlags = []
+    private var builtInBySender: [UInt64: Bool] = [:]
 
     var onKeyEvent: KeyHandler?
+    /// Click only for the Mac's own keyboard, not for external ones.
+    var builtInOnly = true
     var onPermissionChanged: ((Bool) -> Void)?
 
     private(set) var hasGlobalAccess: Bool = false
@@ -76,7 +79,7 @@ final class KeyboardMonitor {
             if self.eventTap != nil { return event }
             if event.type == .keyDown && event.isARepeat { return event }
             let isDown = (event.type == .keyDown)
-            self.onKeyEvent?(event.keyCode, event.charactersIgnoringModifiers, isDown)
+            self.onKeyEvent?(event.keyCode, isDown)
             return event
         }
     }
@@ -138,26 +141,30 @@ final class KeyboardMonitor {
 
     private func handleCGEvent(type: CGEventType, event: CGEvent) {
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+        // Keystrokes posted by other apps (e.g. RuSwitcher retyping a word) carry their event source's
+        // user data; hardware keystrokes have 0. Clicking on them causes a machine-gun burst.
+        let isSynthetic = event.getIntegerValueField(.eventSourceUserData) != 0
+        let ignored = isSynthetic || (builtInOnly && !isFromBuiltInKeyboard(event))
 
         switch type {
         case .keyDown:
+            if ignored { return }
             if event.getIntegerValueField(.keyboardEventAutorepeat) != 0 { return }
-            let chars = unicodeString(from: event)
-            onKeyEvent?(keyCode, chars, true)
+            onKeyEvent?(keyCode, true)
 
         case .keyUp:
-            let chars = unicodeString(from: event)
-            onKeyEvent?(keyCode, chars, false)
+            if ignored { return }
+            onKeyEvent?(keyCode, false)
 
         case .flagsChanged:
             let flags = event.flags
             let relevantMask: CGEventFlags = [.maskShift, .maskControl, .maskAlternate, .maskCommand, .maskAlphaShift]
             let prev = lastModifierFlags.intersection(relevantMask)
             let curr = flags.intersection(relevantMask)
-            lastModifierFlags = flags
-            if curr != prev {
+            lastModifierFlags = flags // track ignored changes too, so the next real one compares correctly
+            if curr != prev && !ignored {
                 let isDown = curr.rawValue > prev.rawValue
-                onKeyEvent?(keyCode, nil, isDown)
+                onKeyEvent?(keyCode, isDown)
             }
 
         default:
@@ -165,11 +172,25 @@ final class KeyboardMonitor {
         }
     }
 
-    private func unicodeString(from event: CGEvent) -> String? {
-        var length = 0
-        var buffer = [UniChar](repeating: 0, count: 4)
-        event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &buffer)
-        guard length > 0 else { return nil }
-        return String(utf16CodeUnits: buffer, count: length)
+    /// Looks up the HID service that sent the event and checks its "Built-In" property.
+    /// Field 87 (sender's IORegistry ID) is undocumented; if it is missing we fail open and click.
+    private func isFromBuiltInKeyboard(_ event: CGEvent) -> Bool {
+        guard let field = CGEventField(rawValue: 87) else { return true }
+        let senderID = UInt64(bitPattern: event.getIntegerValueField(field))
+        if senderID == 0 { return true }
+        if let cached = builtInBySender[senderID] { return cached }
+
+        var builtIn = false
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IORegistryEntryIDMatching(senderID))
+        if service != 0 {
+            let value = IORegistryEntrySearchCFProperty(
+                service, kIOServicePlane, "Built-In" as CFString, kCFAllocatorDefault,
+                IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)
+            )
+            builtIn = (value as? Bool) ?? false
+            IOObjectRelease(service)
+        }
+        builtInBySender[senderID] = builtIn
+        return builtIn
     }
 }
