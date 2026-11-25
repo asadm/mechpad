@@ -70,8 +70,8 @@ final class AppState: ObservableObject {
             }
         }
 
-        monitor.onKeyEvent = { [weak self] keyCode, characters, isKeyDown in
-            self?.handleKey(keyCode: keyCode, characters: characters, isKeyDown: isKeyDown)
+        monitor.onKeyEvent = { [weak self] keyCode, isKeyDown in
+            self?.handleKey(keyCode: keyCode, isKeyDown: isKeyDown)
         }
 
         monitor.start()
@@ -82,7 +82,7 @@ final class AppState: ObservableObject {
         engine.close()
     }
 
-    func handleKey(keyCode: UInt16, characters: String?, isKeyDown: Bool) {
+    func handleKey(keyCode: UInt16, isKeyDown: Bool) {
         guard isEnabled else { return }
         if !isKeyDown && !playKeyUp { return }
 
@@ -99,7 +99,7 @@ final class AppState: ObservableObject {
         )
 
         if isKeyDown {
-            let label = KeyKind.displayName(for: keyCode, characters: characters)
+            let label = KeyKind.displayName(for: keyCode)
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.lastKeyLabel = label
